@@ -1,0 +1,25 @@
+#Construcción
+FROM maven:3.9.6-eclipse-temurin-21 AS build
+
+ARG GITHUB_BRANCH
+ARG GITHUB_BACKEND_REPO
+
+#Control de variables
+RUN echo "Valor de GITHUB_BRANCH: ${GITHUB_BRANCH}"
+RUN echo "Valor de GITHUB_BACKEND_REPO: ${GITHUB_BACKEND_REPO}"
+RUN test -n "${GITHUB_BRANCH}" || (echo "ERROR: GITHUB_BRANCH no está definida" && exit 1)
+RUN test -n "${GITHUB_BACKEND_REPO}" || (echo "ERROR: GITHUB_BACKEND_REPO no está definida" && exit 1)
+
+RUN git clone --depth 1 -b ${GITHUB_BRANCH} ${GITHUB_BACKEND_REPO} /app
+WORKDIR /app
+
+RUN mvn dependency:go-offline
+
+RUN mvn package -DskipTests -Dmaven.compiler.release=21
+
+#Ejecución
+FROM eclipse-temurin:21-jre-jammy
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE ${SERVER_PORT}
+ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -1,0 +1,24 @@
+# Etapa de construcción
+FROM node:18 AS build
+
+ARG GITHUB_FRONTEND_REPO=https://github.com/ChusVazquez/ems-front.git
+ARG GITHUB_BRANCH=main
+
+RUN test -n "${GITHUB_FRONTEND_REPO}" || (echo "ERROR: GITHUB_FRONTEND_REPO no está definida" && exit 1)
+
+RUN apt-get update && apt-get install -y git
+WORKDIR /app
+RUN rm -rf ./* .[!.]* && \
+    git clone --depth 1 -b ${GITHUB_BRANCH} ${GITHUB_FRONTEND_REPO} . && \
+    rm -rf .git
+
+COPY .env .
+RUN npm install
+RUN npm run build
+
+# Etapa de ejecución
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE ${FRONTEND_PORT}
+CMD ["nginx", "-g", "daemon off;"]
